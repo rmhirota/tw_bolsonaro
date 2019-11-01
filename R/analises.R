@@ -8,7 +8,7 @@ library(scales)
 
 
 # Leitura dos dados
-tweets_orig <- data.table::fread("data/total_bolsonaro.csv", header = T)
+tweets_orig <- data.table::fread("~/../Downloads//total_bolsonaro.csv", header = T)
 tweets_orig <- janitor::clean_names(tweets_orig) %>% select(-c(v1, x, new))
 glimpse(tweets_orig)
 
@@ -49,7 +49,7 @@ tweets_unnested <- tweets_bolso %>% unnest_tokens(term, text)
 tweets_unnested <- tweets_unnested %>%
   inner_join(op30, by = "term") %>%
   inner_join(sent %>% select(term, lex_polarity = polarity), by = "term") %>%
-  group_by(id) %>%
+  group_by(id_unica) %>%
   summarise(
     tw_sentiment_op = sum(polarity),
     tw_sentiment_lex = sum(lex_polarity),
@@ -82,8 +82,8 @@ tweets_unnested <- tweets_unnested %>% filter(abs(tw_sentiment_op - tw_sentiment
 
 # Tweet mais positivo
 most_pos <- which.max(tweets_unnested$most_pos)
-cat(tweets$text[tweets$id == tweets_unnested$id[most_pos]])
-tweets_bolso %>% filter(id == tweets_unnested$id[most_pos]) %>% View()
+cat(tweets$text[tweets$id_unica == tweets_unnested$id_unica[most_pos]])
+tweets_bolso %>% filter(id_unica == tweets_unnested$id_unica[most_pos]) %>% View()
 
 # tirando esse usuário que tem "bolsominion" no nome:
 # filtro_ids <- tweets %>% filter(screen_name == "RafaelRabello14") %>% pull(id)
@@ -94,13 +94,13 @@ tweets_bolso %>% filter(id == tweets_unnested$id[most_pos]) %>% View()
 
 # Tweet mais negativo
 most_neg <- which.min(tweets_unnested$most_neg)
-cat(tweets_bolso$text[tweets$id == tweets_unnested$id[most_neg]])
-tweets_bolso %>% filter(id == tweets_unnested$id[most_neg]) %>% View()
+cat(tweets_bolso$text[tweets$id_unica == tweets_unnested$id_unica[most_neg]])
+tweets_bolso %>% filter(id_unica == tweets_unnested$id_unica[most_neg]) %>% View()
 
 # Juntando informações de sentimento aos dados dos tweets
 tweets_fim <- tweets_bolso %>% inner_join(
-  tweets_unnested %>% select(id, sentiment = tw_sentiment_op),
-  by = "id")
+  tweets_unnested %>% select(id_unica, sentiment = tw_sentiment_op),
+  by = "id_unica")
 
 glimpse(tweets_fim)
 
@@ -142,3 +142,38 @@ tweets_fim %>%
   filter(!is.na(cat)) %>%
   ggplot(aes(x = datahora, y = n, color = cat)) +
   geom_line()
+
+
+# Proporção de tweets positivos sobre quantidade de tweets negativos
+tweets_fim %>%
+  mutate(datahora = floor_date(created, "minutes")) %>%
+  mutate(cat = ifelse(sentiment > 0, "positivo", ifelse(sentiment < 0, "negativo", NA))) %>%
+  group_by(datahora, cat) %>%
+  summarise(n = n()) %>%
+  spread(cat, n) %>%
+  mutate(p = positivo/negativo) %>%
+  ggplot(aes(x = datahora, y = p)) +
+  geom_line() +
+  geom_smooth()
+
+
+# Quantidade total de tweets
+tweets_bolso %>%
+  mutate(datahora = floor_date(created, "minutes")) %>%
+  group_by(datahora) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(x = datahora, y = n)) +
+  geom_line()
+# Tweets por minuto mencionando bolsonaro no texto
+tweets_bolso %>%
+  mutate(datahora = floor_date(created, "minutes")) %>%
+  group_by(datahora) %>%
+  summarise(n = n())
+
+
+# Quantidade de tweets positivos e negativos no pico
+tweets_fim %>%
+  mutate(datahora = floor_date(created, "minutes")) %>%
+  mutate(cat = ifelse(sentiment > 0, "positivo", ifelse(sentiment < 0, "negativo", NA))) %>%
+  filter(datahora == "2019-10-30 02:11:00" ) %>% group_by(cat) %>% summarise(n=n())
+

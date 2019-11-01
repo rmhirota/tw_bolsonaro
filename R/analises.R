@@ -8,7 +8,7 @@ library(scales)
 
 
 # Leitura dos dados
-tweets_orig <- data.table::fread("~/../Downloads//total_bolsonaro.csv", header = T)
+tweets_orig <- data.table::fread("data/total_bolsonaro.csv", header = T)
 tweets_orig <- janitor::clean_names(tweets_orig) %>% select(-c(v1, x, new))
 glimpse(tweets_orig)
 
@@ -44,8 +44,11 @@ tweets_bolso <- tweets_bolso %>%
   mutate(text = iconv(text, from = 'UTF-8', to = 'ASCII//TRANSLIT'),
          text = str_to_lower(str_replace_all(text, "[//^~']+", "")))
 
+
+# Separando palavras
 tweets_unnested <- tweets_bolso %>% unnest_tokens(term, text)
 
+# Correspondência com léxicos
 tweets_unnested <- tweets_unnested %>%
   inner_join(op30, by = "term") %>%
   inner_join(sent %>% select(term, lex_polarity = polarity), by = "term") %>%
@@ -82,7 +85,7 @@ tweets_unnested <- tweets_unnested %>% filter(abs(tw_sentiment_op - tw_sentiment
 
 # Tweet mais positivo
 most_pos <- which.max(tweets_unnested$most_pos)
-cat(tweets$text[tweets$id_unica == tweets_unnested$id_unica[most_pos]])
+cat(tweets_bolso$text[tweets_bolso$id_unica == tweets_unnested$id_unica[most_pos]])
 tweets_bolso %>% filter(id_unica == tweets_unnested$id_unica[most_pos]) %>% View()
 
 # tirando esse usuário que tem "bolsominion" no nome:
@@ -94,7 +97,7 @@ tweets_bolso %>% filter(id_unica == tweets_unnested$id_unica[most_pos]) %>% View
 
 # Tweet mais negativo
 most_neg <- which.min(tweets_unnested$most_neg)
-cat(tweets_bolso$text[tweets$id_unica == tweets_unnested$id_unica[most_neg]])
+cat(tweets_bolso$text[tweets_bolso$id_unica == tweets_unnested$id_unica[most_neg]])
 tweets_bolso %>% filter(id_unica == tweets_unnested$id_unica[most_neg]) %>% View()
 
 # Juntando informações de sentimento aos dados dos tweets
@@ -141,7 +144,8 @@ tweets_fim %>%
   summarise(n = n()) %>%
   filter(!is.na(cat)) %>%
   ggplot(aes(x = datahora, y = n, color = cat)) +
-  geom_line()
+  geom_line() +
+  scale_x_datetime(date_breaks = "1 hour", labels = date_format("%H %M"))
 
 
 # Proporção de tweets positivos sobre quantidade de tweets negativos
@@ -154,7 +158,8 @@ tweets_fim %>%
   mutate(p = positivo/negativo) %>%
   ggplot(aes(x = datahora, y = p)) +
   geom_line() +
-  geom_smooth()
+  geom_smooth() +
+  scale_x_datetime(date_breaks = "1 hour", labels = date_format("%H %M"))
 
 
 # Quantidade total de tweets
@@ -163,7 +168,8 @@ tweets_bolso %>%
   group_by(datahora) %>%
   summarise(n = n()) %>%
   ggplot(aes(x = datahora, y = n)) +
-  geom_line()
+  geom_line() +
+  scale_x_datetime(date_breaks = "1 hour", labels = date_format("%H %M"))
 # Tweets por minuto mencionando bolsonaro no texto
 tweets_bolso %>%
   mutate(datahora = floor_date(created, "minutes")) %>%
